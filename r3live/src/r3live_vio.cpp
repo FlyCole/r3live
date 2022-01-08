@@ -208,6 +208,7 @@ void R3LIVE::set_initial_camera_parameter( StatesGroup &state, double *intrinsic
 
     m_inital_rot_ext_i2c = state.rot_ext_i2c;
     m_inital_pos_ext_i2c = state.pos_ext_i2c;
+    m_last_local_pos.setZero();
     state.cam_intrinsic( 0 ) = g_cam_K( 0, 0 );
     state.cam_intrinsic( 1 ) = g_cam_K( 1, 1 );
     state.cam_intrinsic( 2 ) = g_cam_K( 0, 2 );
@@ -1070,6 +1071,21 @@ char R3LIVE::cv_keyboard_callback()
     return c;
 }
 
+// Save local map every 10m
+void R3LIVE::save_local_map(std::shared_ptr<Image_frame> &image)
+{
+    vec_3 odom_t = image->m_pose_w2c_t;
+    double dist = (odom_t - m_last_local_pos).norm();
+    if (dist > 1.0)
+    {
+        cout << "Out of local map boundary, save another local map!" << endl;
+        cout << "Current local map pos is " << odom_t;
+        fflush(stdout);
+        m_map_rgb_pts.save_local_to_pcd(m_map_output_dir, std::string("/rgb_pt"), m_pub_pt_minimum_views);
+        m_last_local_pos = odom_t;
+    }
+}
+
 // ANCHOR -  service_VIO_update
 void R3LIVE::service_VIO_update()
 {
@@ -1231,6 +1247,9 @@ void R3LIVE::service_VIO_update()
         publish_camera_odom( img_pose, message_time );
         // publish_track_img( op_track.m_debug_track_img, display_cost_time );
         publish_track_img( img_pose->m_raw_img, display_cost_time );
+
+        // save local map every 10m
+        save_local_map(img_pose);
 
         if ( m_if_pub_raw_img )
         {

@@ -646,7 +646,57 @@ void Global_map::save_to_pcd(std::string dir_name, std::string _file_name, int s
     pc_rgb.resize(pt_count);
     cout << "Total have " << pt_count << " points." << endl;
     tim.tic();
-    cout << "Now write to: " << file_name << endl; 
+    cout << "Now write to: " << file_name << endl;
+    pcl::io::savePCDFileBinary(std::string(file_name).append(".pcd"), pc_rgb);
+    cout << "Save PCD cost time = " << tim.toc() << endl;
+}
+
+void Global_map::save_local_to_pcd(std::string dir_name, std::string _file_name, int save_pts_with_views )
+{
+    Common_tools::Timer tim;
+    Common_tools::create_dir(dir_name);
+    std::string file_name = std::string(dir_name).append(_file_name);
+    file_name.append("_").append(std::to_string(m_local_map_index++));
+    scope_color(ANSI_COLOR_BLUE_BOLD);
+    cout << "Save Rgb points to " << file_name << endl;
+    fflush(stdout);
+    pcl::PointCloud<pcl::PointXYZRGB> pc_rgb;
+    long pt_size = m_rgb_pts_vec.size();
+    long current_start = m_next_local_start_index;
+    long next_start_index = 0.9 * pt_size + 0.1 * m_next_local_start_index;
+    m_next_local_start_index = next_start_index;
+    cout << "Current start index: " << current_start << endl;
+    cout << "Next start index: " << next_start_index << endl;
+
+    pc_rgb.resize(pt_size - current_start);
+    long pt_count = 0;
+    for (long i = pt_size - 1; i > current_start; i--)
+        //for (int i = 0; i  <  pt_size; i++)
+    {
+        if ( i % 1000 == 0)
+        {
+            cout << ANSI_DELETE_CURRENT_LINE << "Saving offline map " << (int)( (pt_size- 1 -i ) * 100.0 / (pt_size-1) ) << " % ...";
+            fflush(stdout);
+        }
+
+        if (m_rgb_pts_vec[i]->m_N_rgb < save_pts_with_views)
+        {
+            continue;
+        }
+        pcl::PointXYZRGB pt;
+        pc_rgb.points[ pt_count ].x = m_rgb_pts_vec[ i ]->m_pos[ 0 ];
+        pc_rgb.points[ pt_count ].y = m_rgb_pts_vec[ i ]->m_pos[ 1 ];
+        pc_rgb.points[ pt_count ].z = m_rgb_pts_vec[ i ]->m_pos[ 2 ];
+        pc_rgb.points[ pt_count ].r = m_rgb_pts_vec[ i ]->m_rgb[ 2 ];
+        pc_rgb.points[ pt_count ].g = m_rgb_pts_vec[ i ]->m_rgb[ 1 ];
+        pc_rgb.points[ pt_count ].b = m_rgb_pts_vec[ i ]->m_rgb[ 0 ];
+        pt_count++;
+    }
+    cout << ANSI_DELETE_CURRENT_LINE  << "Saving offline map 100% ..." << endl;
+    pc_rgb.resize(pt_count);
+    cout << "Total have " << pt_count << " points." << endl;
+    tim.tic();
+    cout << "Now write to: " << file_name << endl;
     pcl::io::savePCDFileBinary(std::string(file_name).append(".pcd"), pc_rgb);
     cout << "Save PCD cost time = " << tim.toc() << endl;
 }

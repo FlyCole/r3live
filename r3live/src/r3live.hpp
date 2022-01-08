@@ -267,6 +267,7 @@ public:
 
     mat_3_3 m_inital_rot_ext_i2c;
     vec_3  m_inital_pos_ext_i2c;
+    vec_3 m_last_local_pos;
     Eigen::Matrix<double, 3, 3, Eigen::RowMajor> m_camera_intrinsic;
     Eigen::Matrix<double, 5, 1> m_camera_dist_coeffs;
     Eigen::Matrix<double, 3, 3, Eigen::RowMajor> m_camera_ext_R;
@@ -304,6 +305,7 @@ public:
     void service_process_img_buffer();
     void service_pub_rgb_maps();
     char cv_keyboard_callback();
+    void save_local_map(std::shared_ptr<Image_frame> & image);
     void set_initial_state_cov(StatesGroup &stat);
     cv::Mat generate_control_panel_img();
     // ANCHOR -  service_pub_rgb_maps
