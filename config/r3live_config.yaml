@@ -14,6 +14,8 @@ r3live_common:
    estimate_intrinsic: 1            # If enable estimate the online intrinsic calibration of the camera lens. [default = 1] 
    maximum_vio_tracked_pts: 600     # The maximum points for tracking. [default = 600]
    append_global_map_point_step: 4  # The point step of append point to global map. [default = 4]
+   local_map_interval: 5            # Local map interval. [default = 5]
+   local_map_overlap: 0.3           # Local map overlap ratio. [defauly = 0.3]
 
 r3live_vio:
    image_width: 1280

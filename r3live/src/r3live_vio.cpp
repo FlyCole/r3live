@@ -1074,15 +1074,30 @@ char R3LIVE::cv_keyboard_callback()
 // Save local map every 10m
 void R3LIVE::save_local_map(std::shared_ptr<Image_frame> &image)
 {
+    eigen_q odom_q = image->m_pose_w2c_q;
     vec_3 odom_t = image->m_pose_w2c_t;
     double dist = (odom_t - m_last_local_pos).norm();
-    if (dist > 1.0)
+    if (dist > m_local_map_interval)
     {
         cout << "Out of local map boundary, save another local map!" << endl;
         cout << "Current local map pos is " << odom_t;
         fflush(stdout);
-        m_map_rgb_pts.save_local_to_pcd(m_map_output_dir, std::string("/rgb_pt"), m_pub_pt_minimum_views);
+
+        Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+        T.block<3,3>(0,0) = odom_q.toRotationMatrix().eval();
+        T.block<3,1>(0,3) = odom_t.eval();
+        std::string timestamp = std::to_string(image->m_timestamp);
+        timestamp = timestamp.replace(timestamp.find('.'), 1, "_");
+
+        m_map_rgb_pts.save_local_to_pcd(m_map_output_dir + "/odometry/", timestamp, m_pub_pt_minimum_views, T, m_local_map_overlap);
         m_last_local_pos = odom_t;
+
+        ofstream fin(m_map_output_dir + "/odometry/" + timestamp + ".odom", ios::binary);
+        fin << T(0, 0) << " " << T(0, 1) << " " << T(0, 2) << " " << T(0, 3) << endl;
+        fin << T(1, 0) << " " << T(1, 1) << " " << T(1, 2) << " " << T(1, 3) << endl;
+        fin << T(2, 0) << " " << T(2, 1) << " " << T(2, 2) << " " << T(2, 3) << endl;
+        fin << T(3, 0) << " " << T(3, 1) << " " << T(3, 2) << " " << T(3, 3) << endl;
+        fin.close();
     }
 }
 

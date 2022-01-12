@@ -651,24 +651,67 @@ void Global_map::save_to_pcd(std::string dir_name, std::string _file_name, int s
     cout << "Save PCD cost time = " << tim.toc() << endl;
 }
 
-void Global_map::save_local_to_pcd(std::string dir_name, std::string _file_name, int save_pts_with_views )
+void Global_map::save_local_to_pcd(std::string dir_name, std::string _file_name, int save_pts_with_views,
+                                   const Eigen::Matrix4d &T, double overlap_ratio)
 {
     Common_tools::Timer tim;
     Common_tools::create_dir(dir_name);
     std::string file_name = std::string(dir_name).append(_file_name);
-    file_name.append("_").append(std::to_string(m_local_map_index++));
+    // file_name.append("_").append(std::to_string(m_local_map_index++));
     scope_color(ANSI_COLOR_BLUE_BOLD);
     cout << "Save Rgb points to " << file_name << endl;
     fflush(stdout);
-    pcl::PointCloud<pcl::PointXYZRGB> pc_rgb;
+
+    // save RGB PointCloud
+    // pcl::PointCloud<pcl::PointXYZRGB> pc_rgb;
+    // long pt_size = m_rgb_pts_vec.size();
+    // long current_start = m_next_local_start_index;
+    // long next_start_index = (1 - overlap_ratio) * pt_size + overlap_ratio * m_next_local_start_index;
+    // m_next_local_start_index = next_start_index;
+    // cout << "Current start index: " << current_start << endl;
+    // cout << "Next start index: " << next_start_index << endl;
+    //
+    // pc_rgb.resize(pt_size - current_start);
+    // long pt_count = 0;
+    // for (long i = pt_size - 1; i > current_start; i--)
+    //     //for (int i = 0; i  <  pt_size; i++)
+    // {
+    //     if ( i % 1000 == 0)
+    //     {
+    //         cout << ANSI_DELETE_CURRENT_LINE << "Saving offline map " << (int)( (pt_size- 1 -i ) * 100.0 / (pt_size-1) ) << " % ...";
+    //         fflush(stdout);
+    //     }
+    //
+    //     if (m_rgb_pts_vec[i]->m_N_rgb < save_pts_with_views)
+    //     {
+    //         continue;
+    //     }
+    //
+    //     // transform from global to local coordinate
+    //     Eigen::Vector4d pt_global(m_rgb_pts_vec[ i ]->m_pos[0], m_rgb_pts_vec[ i ]->m_pos[1], m_rgb_pts_vec[ i ]->m_pos[2], 1);
+    //     // Eigen::Vector4d pt_local = Eigen::Matrix4d::Identity() * pt_global;
+    //     Eigen::Vector4d pt_local = T.inverse() * pt_global;
+    //
+    //     pcl::PointXYZRGB pt;
+    //     pc_rgb.points[ pt_count ].x = pt_local(0);
+    //     pc_rgb.points[ pt_count ].y = pt_local(1);
+    //     pc_rgb.points[ pt_count ].z = pt_local(2);
+    //     pc_rgb.points[ pt_count ].r = m_rgb_pts_vec[ i ]->m_rgb[ 2 ];
+    //     pc_rgb.points[ pt_count ].g = m_rgb_pts_vec[ i ]->m_rgb[ 1 ];
+    //     pc_rgb.points[ pt_count ].b = m_rgb_pts_vec[ i ]->m_rgb[ 0 ];
+    //     pt_count++;
+    // }
+
+    // save XYZ PointCloud
+    pcl::PointCloud<pcl::PointXYZI> pc_I;
     long pt_size = m_rgb_pts_vec.size();
     long current_start = m_next_local_start_index;
-    long next_start_index = 0.9 * pt_size + 0.1 * m_next_local_start_index;
+    long next_start_index = (1 - overlap_ratio) * pt_size + overlap_ratio * m_next_local_start_index;
     m_next_local_start_index = next_start_index;
     cout << "Current start index: " << current_start << endl;
     cout << "Next start index: " << next_start_index << endl;
 
-    pc_rgb.resize(pt_size - current_start);
+    pc_I.resize(pt_size - current_start);
     long pt_count = 0;
     for (long i = pt_size - 1; i > current_start; i--)
         //for (int i = 0; i  <  pt_size; i++)
@@ -683,21 +726,25 @@ void Global_map::save_local_to_pcd(std::string dir_name, std::string _file_name,
         {
             continue;
         }
-        pcl::PointXYZRGB pt;
-        pc_rgb.points[ pt_count ].x = m_rgb_pts_vec[ i ]->m_pos[ 0 ];
-        pc_rgb.points[ pt_count ].y = m_rgb_pts_vec[ i ]->m_pos[ 1 ];
-        pc_rgb.points[ pt_count ].z = m_rgb_pts_vec[ i ]->m_pos[ 2 ];
-        pc_rgb.points[ pt_count ].r = m_rgb_pts_vec[ i ]->m_rgb[ 2 ];
-        pc_rgb.points[ pt_count ].g = m_rgb_pts_vec[ i ]->m_rgb[ 1 ];
-        pc_rgb.points[ pt_count ].b = m_rgb_pts_vec[ i ]->m_rgb[ 0 ];
+
+        // transform from global to local coordinate
+        Eigen::Vector4d pt_global(m_rgb_pts_vec[ i ]->m_pos[0], m_rgb_pts_vec[ i ]->m_pos[1], m_rgb_pts_vec[ i ]->m_pos[2], 1);
+        // Eigen::Vector4d pt_local = Eigen::Matrix4d::Identity() * pt_global;
+        Eigen::Vector4d pt_local = T.inverse() * pt_global;
+
+        pc_I.points[ pt_count ].x = pt_local(0);
+        pc_I.points[ pt_count ].y = pt_local(1);
+        pc_I.points[ pt_count ].z = pt_local(2);
+        pc_I.points[ pt_count ].intensity = m_rgb_pts_vec[ i ]->m_gray;
         pt_count++;
     }
+
     cout << ANSI_DELETE_CURRENT_LINE  << "Saving offline map 100% ..." << endl;
-    pc_rgb.resize(pt_count);
+    pc_I.resize(pt_count);
     cout << "Total have " << pt_count << " points." << endl;
     tim.tic();
     cout << "Now write to: " << file_name << endl;
-    pcl::io::savePCDFileBinary(std::string(file_name).append(".pcd"), pc_rgb);
+    pcl::io::savePCDFileBinary(std::string(file_name).append(".pcd"), pc_I);
     cout << "Save PCD cost time = " << tim.toc() << endl;
 }
 

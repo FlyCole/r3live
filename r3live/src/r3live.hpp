@@ -263,6 +263,8 @@ public:
     double m_tracker_minimum_depth = 3;
     double m_tracker_maximum_depth = 200;
     int m_if_record_mvs = 0;
+    double m_local_map_interval = 5;
+    double m_local_map_overlap = 0.3;
     cv::Mat intrinsic, dist_coeffs;
 
     mat_3_3 m_inital_rot_ext_i2c;
@@ -374,6 +376,8 @@ public:
             get_ros_parameter( m_ros_node_handle, "r3live_common/estimate_i2c_extrinsic", m_if_estimate_i2c_extrinsic, 0 );
             get_ros_parameter( m_ros_node_handle, "r3live_common/estimate_intrinsic", m_if_estimate_intrinsic, 0 );
             get_ros_parameter( m_ros_node_handle, "r3live_common/maximum_vio_tracked_pts", m_maximum_vio_tracked_pts, 600 );
+            get_ros_parameter( m_ros_node_handle, "r3live_common/local_map_interval", m_local_map_interval, 5.0 );
+            get_ros_parameter( m_ros_node_handle, "r3live_common/local_map_overlap", m_local_map_overlap, 0.3 );
         }
         if ( 1 )
         {
