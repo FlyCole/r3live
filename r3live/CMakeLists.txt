@@ -24,8 +24,10 @@ find_package(catkin REQUIRED COMPONENTS
                     geometry_msgs
                     nav_msgs
                     tf
+					sensor_msgs
                     cv_bridge
                     livox_ros_driver
+					message_generation
             )
 
 # find_package(Ceres REQUIRED)
@@ -59,9 +61,16 @@ endif()
 
 include_directories(${catkin_INCLUDE_DIRS})
 
+add_message_files(
+		FILES
+		LocalMap.msg
+)
+
 generate_messages(
  DEPENDENCIES
  geometry_msgs
+ nav_msgs
+ sensor_msgs
 )
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -79,7 +88,7 @@ include_directories(
 )
 
 
-catkin_package()
+catkin_package(CATKIN_DEPENDS message_runtime)
 
 message(STATUS "===== ${PROJECT_NAME}: OpenCV library status: =====")
 message(STATUS "===== OpenCV ersion: ${OpenCV_VERSION}  =====")
@@ -163,3 +172,4 @@ target_link_libraries(r3live_meshing
                                   pcl_kdtree)
 
 endif()
+

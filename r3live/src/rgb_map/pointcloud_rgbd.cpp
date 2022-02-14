@@ -651,58 +651,20 @@ void Global_map::save_to_pcd(std::string dir_name, std::string _file_name, int s
     cout << "Save PCD cost time = " << tim.toc() << endl;
 }
 
-void Global_map::save_local_to_pcd(std::string dir_name, std::string _file_name, int save_pts_with_views,
-                                   const Eigen::Matrix4d &T, double overlap_ratio)
+void Global_map::save_local_to_pcd(std::string dir_name, sensor_msgs::PointCloud2 &cloud_map,
+                                   int32_t &counter, std::string _file_name,
+                                   int save_pts_with_views,const Eigen::Matrix4d &T, double overlap_ratio)
 {
     Common_tools::Timer tim;
     Common_tools::create_dir(dir_name);
     std::string file_name = std::string(dir_name).append(_file_name);
     // file_name.append("_").append(std::to_string(m_local_map_index++));
     scope_color(ANSI_COLOR_BLUE_BOLD);
-    cout << "Save Rgb points to " << file_name << endl;
+    cout << "Save RGB points to " << file_name << endl;
     fflush(stdout);
 
-    // save RGB PointCloud
-    // pcl::PointCloud<pcl::PointXYZRGB> pc_rgb;
-    // long pt_size = m_rgb_pts_vec.size();
-    // long current_start = m_next_local_start_index;
-    // long next_start_index = (1 - overlap_ratio) * pt_size + overlap_ratio * m_next_local_start_index;
-    // m_next_local_start_index = next_start_index;
-    // cout << "Current start index: " << current_start << endl;
-    // cout << "Next start index: " << next_start_index << endl;
-    //
-    // pc_rgb.resize(pt_size - current_start);
-    // long pt_count = 0;
-    // for (long i = pt_size - 1; i > current_start; i--)
-    //     //for (int i = 0; i  <  pt_size; i++)
-    // {
-    //     if ( i % 1000 == 0)
-    //     {
-    //         cout << ANSI_DELETE_CURRENT_LINE << "Saving offline map " << (int)( (pt_size- 1 -i ) * 100.0 / (pt_size-1) ) << " % ...";
-    //         fflush(stdout);
-    //     }
-    //
-    //     if (m_rgb_pts_vec[i]->m_N_rgb < save_pts_with_views)
-    //     {
-    //         continue;
-    //     }
-    //
-    //     // transform from global to local coordinate
-    //     Eigen::Vector4d pt_global(m_rgb_pts_vec[ i ]->m_pos[0], m_rgb_pts_vec[ i ]->m_pos[1], m_rgb_pts_vec[ i ]->m_pos[2], 1);
-    //     // Eigen::Vector4d pt_local = Eigen::Matrix4d::Identity() * pt_global;
-    //     Eigen::Vector4d pt_local = T.inverse() * pt_global;
-    //
-    //     pcl::PointXYZRGB pt;
-    //     pc_rgb.points[ pt_count ].x = pt_local(0);
-    //     pc_rgb.points[ pt_count ].y = pt_local(1);
-    //     pc_rgb.points[ pt_count ].z = pt_local(2);
-    //     pc_rgb.points[ pt_count ].r = m_rgb_pts_vec[ i ]->m_rgb[ 2 ];
-    //     pc_rgb.points[ pt_count ].g = m_rgb_pts_vec[ i ]->m_rgb[ 1 ];
-    //     pc_rgb.points[ pt_count ].b = m_rgb_pts_vec[ i ]->m_rgb[ 0 ];
-    //     pt_count++;
-    // }
-
-    // save XYZ PointCloud
+    // save XYZ PointCloud and publish RGB PointCloud
+    pcl::PointCloud<pcl::PointXYZRGB> pc_rgb;
     pcl::PointCloud<pcl::PointXYZI> pc_I;
     long pt_size = m_rgb_pts_vec.size();
     long current_start = m_next_local_start_index;
@@ -711,6 +673,7 @@ void Global_map::save_local_to_pcd(std::string dir_name, std::string _file_name,
     cout << "Current start index: " << current_start << endl;
     cout << "Next start index: " << next_start_index << endl;
 
+    pc_rgb.resize(pt_size - current_start);
     pc_I.resize(pt_size - current_start);
     long pt_count = 0;
     for (long i = pt_size - 1; i > current_start; i--)
@@ -736,8 +699,20 @@ void Global_map::save_local_to_pcd(std::string dir_name, std::string _file_name,
         pc_I.points[ pt_count ].y = pt_local(1);
         pc_I.points[ pt_count ].z = pt_local(2);
         pc_I.points[ pt_count ].intensity = m_rgb_pts_vec[ i ]->m_gray;
+
+        pc_rgb.points[ pt_count ].x = pt_local(0);
+        pc_rgb.points[ pt_count ].y = pt_local(1);
+        pc_rgb.points[ pt_count ].z = pt_local(2);
+        pc_rgb.points[ pt_count ].r = m_rgb_pts_vec[ i ]->m_rgb[ 2 ];
+        pc_rgb.points[ pt_count ].g = m_rgb_pts_vec[ i ]->m_rgb[ 1 ];
+        pc_rgb.points[ pt_count ].b = m_rgb_pts_vec[ i ]->m_rgb[ 0 ];
+
         pt_count++;
     }
+
+    // pass to the msgs
+    counter = pt_count;
+    pcl::toROSMsg(pc_rgb, cloud_map);
 
     cout << ANSI_DELETE_CURRENT_LINE  << "Saving offline map 100% ..." << endl;
     pc_I.resize(pt_count);

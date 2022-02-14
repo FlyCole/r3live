@@ -54,6 +54,9 @@ Dr. Fu Zhang < fuzhang@hku.hk >.
 #include "tools_kd_hash.hpp"
 #include "tools_thread_pool.hpp"
 #include "tools_serialization.hpp"
+#include "nav_msgs/Odometry.h"
+#include "sensor_msgs/PointCloud2.h"
+#include <pcl_conversions/pcl_conversions.h>
 // #include "assert.h"
 #define R3LIVE_MAP_MAJOR_VERSION 1
 #define R3LIVE_MAP_MINOR_VERSION 0
@@ -199,7 +202,8 @@ struct Global_map
     void selection_points_for_projection( std::shared_ptr< Image_frame > &image_pose, std::vector< std::shared_ptr< RGB_pts > > *pc_out_vec = nullptr,
                                           std::vector< cv::Point2f > *pc_2d_out_vec = nullptr, double minimum_dis = 5, int skip_step = 1,int use_all_pts = 0 );
     void save_to_pcd( std::string dir_name, std::string file_name = std::string( "/rgb_pt" ) , int save_pts_with_views = 3);
-    void save_local_to_pcd( std::string dir_name, std::string file_name = std::string( "/rgb_pt" ) , int save_pts_with_views = 3,
+    void save_local_to_pcd( std::string dir_name, sensor_msgs::PointCloud2 &cloud_map, int32_t &counter,
+                            std::string file_name = std::string( "/rgb_pt" ) , int save_pts_with_views = 3,
                             const Eigen::Matrix4d &T = Eigen::Matrix4d::Identity(), double local_map_opverlap = 0.3);
     void save_and_display_pointcloud( std::string dir_name = std::string( "/home/ziv/temp/" ), std::string file_name = std::string( "/rgb_pt" ) ,  int save_pts_with_views = 3);
     void render_pts_in_voxels( std::shared_ptr< Image_frame > &img_ptr, std::vector< std::shared_ptr< RGB_pts > > &voxels_for_render, double obs_time = 0 );

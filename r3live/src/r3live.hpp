@@ -96,6 +96,8 @@ Dr. Fu Zhang < fuzhang@hku.hk >.
 #include "pointcloud_rgbd.hpp"
 #include "rgbmap_tracker.hpp"
 
+#include "r3live/LocalMap.h"
+
 #define THREAD_SLEEP_TIM 1
 
 #include "offline_map_recorder.hpp"
@@ -202,6 +204,7 @@ public:
     ros::Publisher pubLaserCloudMap;
     ros::Publisher pubOdomAftMapped;
     ros::Publisher pubPath;
+    ros::Publisher pubLocalMap;
     ros::Subscriber sub_pcl;
     ros::Subscriber sub_imu;
     ros::Subscriber sub_img, sub_img_comp;
@@ -330,6 +333,7 @@ public:
 
         pub_odom_cam = m_ros_node_handle.advertise<nav_msgs::Odometry>("/camera_odom", 10);
         pub_path_cam = m_ros_node_handle.advertise<nav_msgs::Path>("/camera_path", 10);
+        pubLocalMap = m_ros_node_handle.advertise<r3live::LocalMap>("/local_map", 1);
         std::string LiDAR_pointcloud_topic, IMU_topic, IMAGE_topic, IMAGE_topic_compressed;
 
         get_ros_parameter<std::string>(m_ros_node_handle, "/LiDAR_pointcloud_topic", LiDAR_pointcloud_topic, std::string("/laser_cloud_flat") );

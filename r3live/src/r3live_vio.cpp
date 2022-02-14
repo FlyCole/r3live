@@ -50,6 +50,7 @@ Dr. Fu Zhang < fuzhang@hku.hk >.
 #include "tools_mem_used.h"
 #include "tools_logger.hpp"
 
+
 Common_tools::Cost_time_logger              g_cost_time_logger;
 std::shared_ptr< Common_tools::ThreadPool > m_thread_pool_ptr;
 double                                      g_vio_frame_cost_time = 0;
@@ -219,6 +220,7 @@ void R3LIVE::set_initial_camera_parameter( StatesGroup &state, double *intrinsic
 
 void R3LIVE::publish_track_img( cv::Mat &img, double frame_cost_time = -1 )
 {
+
     cv_bridge::CvImage out_msg;
     out_msg.header.stamp = ros::Time::now();               // Same timestamp and tf frame as input image
     out_msg.encoding = sensor_msgs::image_encodings::BGR8; // Or whatever
@@ -1074,6 +1076,10 @@ char R3LIVE::cv_keyboard_callback()
 // Save local map every 10m
 void R3LIVE::save_local_map(std::shared_ptr<Image_frame> &image)
 {
+    // Set up for msgs
+    int32_t counter;
+    sensor_msgs::PointCloud2 cloud_map;
+
     eigen_q odom_q = image->m_pose_w2c_q;
     vec_3 odom_t = image->m_pose_w2c_t;
     double dist = (odom_t - m_last_local_pos).norm();
@@ -1089,7 +1095,8 @@ void R3LIVE::save_local_map(std::shared_ptr<Image_frame> &image)
         std::string timestamp = std::to_string(image->m_timestamp);
         timestamp = timestamp.replace(timestamp.find('.'), 1, "_");
 
-        m_map_rgb_pts.save_local_to_pcd(m_map_output_dir + "/odometry/", timestamp, m_pub_pt_minimum_views, T, m_local_map_overlap);
+        m_map_rgb_pts.save_local_to_pcd(m_map_output_dir + "/odometry/", cloud_map, counter,
+                                        timestamp, m_pub_pt_minimum_views, T, m_local_map_overlap);
         m_last_local_pos = odom_t;
 
         ofstream fin(m_map_output_dir + "/odometry/" + timestamp + ".odom", ios::binary);
@@ -1098,6 +1105,28 @@ void R3LIVE::save_local_map(std::shared_ptr<Image_frame> &image)
         fin << T(2, 0) << " " << T(2, 1) << " " << T(2, 2) << " " << T(2, 3) << endl;
         fin << T(3, 0) << " " << T(3, 1) << " " << T(3, 2) << " " << T(3, 3) << endl;
         fin.close();
+
+        // Publish the local map
+        r3live::LocalMap local_map_msg;
+
+        local_map_msg.header.frame_id = "local_map";
+        local_map_msg.counter = counter;
+        local_map_msg.cloud_map = cloud_map;
+
+        nav_msgs::Odometry camera_odom;
+        camera_odom.header.frame_id = "local_map";
+        camera_odom.child_frame_id = "/";
+        camera_odom.header.stamp = ros::Time::now(); // ros::Time().fromSec(last_timestamp_lidar);
+        camera_odom.pose.pose.orientation.x = odom_q.x();
+        camera_odom.pose.pose.orientation.y = odom_q.y();
+        camera_odom.pose.pose.orientation.z = odom_q.z();
+        camera_odom.pose.pose.orientation.w = odom_q.w();
+        camera_odom.pose.pose.position.x = odom_t( 0 );
+        camera_odom.pose.pose.position.y = odom_t( 1 );
+        camera_odom.pose.pose.position.z = odom_t( 2 );
+        local_map_msg.cloud_odom = camera_odom;
+
+        pubLocalMap.publish(local_map_msg);
     }
 }
 
@@ -1186,6 +1215,7 @@ void R3LIVE::service_VIO_update()
             continue;
         }
         set_image_pose( img_pose, state_out );
+        // TODO: Publish IMU rate odometry
 
         op_track.track_img( img_pose, -20 );
         g_cost_time_logger.record( tim, "Track_img" );
@@ -1199,9 +1229,12 @@ void R3LIVE::service_VIO_update()
             cout << ANSI_COLOR_RED_BOLD << "****** Remove_outlier_using_ransac_pnp error*****" << ANSI_COLOR_RESET << endl;
         }
         g_cost_time_logger.record( tim, "Ransac" );
-        tim.tic( "Vio_f2f" );
+        // tim.tic( "Vio_f2f" );
+        tim.tic( "Vio_wait_render" );
         bool res_esikf = true, res_photometric = true;
         wait_render_thread_finish();
+        g_cost_time_logger.record( tim, "Vio_wait_render" );
+        tim.tic( "Vio_f2f" );
         res_esikf = vio_esikf( state_out, op_track );
         g_cost_time_logger.record( tim, "Vio_f2f" );
         tim.tic( "Vio_f2m" );
