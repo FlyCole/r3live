@@ -15,7 +15,11 @@ r3live_common:
    maximum_vio_tracked_pts: 600     # The maximum points for tracking. [default = 600]
    append_global_map_point_step: 4  # The point step of append point to global map. [default = 4]
    local_map_interval: 1            # Local map interval. [default = 5]
-   local_map_overlap: 0.3           # Local map overlap ratio. [defauly = 0.3]
+   local_map_overlap: 0.3           # Local map overlap ratio. [default = 0.3]
+   local_map_x_range: 150           # Local map x range. [default = 150]
+   local_map_y_range: 150           # Local map y range. [default = 150]
+   new_loc_x_range: 100             # New location x range. [default = 150]
+   new_loc_y_range: 100             # New location y range. [default = 150]
 
 r3live_vio:
    image_width: 1280

@@ -205,6 +205,7 @@ public:
     ros::Publisher pubOdomAftMapped;
     ros::Publisher pubPath;
     ros::Publisher pubLocalMap;
+    ros::Publisher pubNewLocation;
     ros::Subscriber sub_pcl;
     ros::Subscriber sub_imu;
     ros::Subscriber sub_img, sub_img_comp;
@@ -268,11 +269,16 @@ public:
     int m_if_record_mvs = 0;
     double m_local_map_interval = 5;
     double m_local_map_overlap = 0.3;
+    double m_local_map_x_range = 150;
+    double m_local_map_y_range = 150;
+    double m_new_loc_x_range = 100;
+    double m_new_loc_y_range = 100;
     cv::Mat intrinsic, dist_coeffs;
 
     mat_3_3 m_inital_rot_ext_i2c;
     vec_3  m_inital_pos_ext_i2c;
     vec_3 m_last_local_pos;
+    eigen_q m_last_local_rot;
     Eigen::Matrix<double, 3, 3, Eigen::RowMajor> m_camera_intrinsic;
     Eigen::Matrix<double, 5, 1> m_camera_dist_coeffs;
     Eigen::Matrix<double, 3, 3, Eigen::RowMajor> m_camera_ext_R;
@@ -302,6 +308,7 @@ public:
     void publish_camera_odom(std::shared_ptr<Image_frame> & image, double msg_time);
     void publish_track_img(cv::Mat & img, double frame_cost_time);
     void publish_raw_img(cv::Mat & img);
+    void publish_new_location(std::shared_ptr<Image_frame> & image);
     void publish_track_pts( Rgbmap_tracker & tracker  );
     bool vio_preintegration( StatesGroup & state_in, StatesGroup & state_out, double current_frame_time );
     bool vio_esikf(StatesGroup &state_in, Rgbmap_tracker &op_track);
@@ -333,7 +340,8 @@ public:
 
         pub_odom_cam = m_ros_node_handle.advertise<nav_msgs::Odometry>("/camera_odom", 10);
         pub_path_cam = m_ros_node_handle.advertise<nav_msgs::Path>("/camera_path", 10);
-        pubLocalMap = m_ros_node_handle.advertise<r3live::LocalMap>("/local_map", 1);
+        pubLocalMap = m_ros_node_handle.advertise<r3live::LocalMap>("/local_map", 10);
+        pubNewLocation = m_ros_node_handle.advertise<r3live::LocalMap>("/new_location", 10);
         std::string LiDAR_pointcloud_topic, IMU_topic, IMAGE_topic, IMAGE_topic_compressed;
 
         get_ros_parameter<std::string>(m_ros_node_handle, "/LiDAR_pointcloud_topic", LiDAR_pointcloud_topic, std::string("/laser_cloud_flat") );
@@ -382,6 +390,10 @@ public:
             get_ros_parameter( m_ros_node_handle, "r3live_common/maximum_vio_tracked_pts", m_maximum_vio_tracked_pts, 600 );
             get_ros_parameter( m_ros_node_handle, "r3live_common/local_map_interval", m_local_map_interval, 5.0 );
             get_ros_parameter( m_ros_node_handle, "r3live_common/local_map_overlap", m_local_map_overlap, 0.3 );
+            get_ros_parameter( m_ros_node_handle, "r3live_common/local_map_x_range", m_local_map_x_range, 150.0 );
+            get_ros_parameter( m_ros_node_handle, "r3live_common/local_map_y_range", m_local_map_y_range, 150.0 );
+            get_ros_parameter( m_ros_node_handle, "r3live_common/new_loc_x_range", m_new_loc_x_range, 100.0 );
+            get_ros_parameter( m_ros_node_handle, "r3live_common/new_loc_x_range", m_new_loc_y_range, 100.0 );
         }
         if ( 1 )
         {

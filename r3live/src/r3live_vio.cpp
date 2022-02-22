@@ -210,6 +210,7 @@ void R3LIVE::set_initial_camera_parameter( StatesGroup &state, double *intrinsic
     m_inital_rot_ext_i2c = state.rot_ext_i2c;
     m_inital_pos_ext_i2c = state.pos_ext_i2c;
     m_last_local_pos.setZero();
+    m_last_local_rot.setIdentity();
     state.cam_intrinsic( 0 ) = g_cam_K( 0, 0 );
     state.cam_intrinsic( 1 ) = g_cam_K( 1, 1 );
     state.cam_intrinsic( 2 ) = g_cam_K( 0, 2 );
@@ -519,6 +520,46 @@ void R3LIVE::publish_camera_odom( std::shared_ptr< Image_frame > &image, double 
     camera_path.header.frame_id = "world";
     camera_path.poses.push_back( msg_pose );
     pub_path_cam.publish( camera_path );
+}
+
+void R3LIVE::publish_new_location(std::shared_ptr<Image_frame> &image) {
+    // Set up for msgs
+    int32_t counter;
+    sensor_msgs::PointCloud2 cloud_map;
+
+    eigen_q odom_q = image->m_pose_w2c_q;
+    vec_3 odom_t = image->m_pose_w2c_t;
+
+    // cout << "Current new pos is " << odom_t << endl;
+
+    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+    T.block<3,3>(0,0) = odom_q.toRotationMatrix().eval();
+    T.block<3,1>(0,3) = odom_t.eval();
+
+    m_map_rgb_pts.select_points_new(cloud_map, counter, m_pub_pt_minimum_views,
+                                    T, m_new_loc_x_range, m_new_loc_y_range);
+
+    // Publish the local map
+    r3live::LocalMap local_map_msg;
+
+    local_map_msg.header.frame_id = "new_location";
+    local_map_msg.counter = counter;
+    local_map_msg.cloud_map = cloud_map;
+
+    nav_msgs::Odometry camera_odom;
+    camera_odom.header.frame_id = "new_location";
+    camera_odom.child_frame_id = "/";
+    camera_odom.header.stamp = ros::Time::now();
+    camera_odom.pose.pose.orientation.x = odom_q.x();
+    camera_odom.pose.pose.orientation.y = odom_q.y();
+    camera_odom.pose.pose.orientation.z = odom_q.z();
+    camera_odom.pose.pose.orientation.w = odom_q.w();
+    camera_odom.pose.pose.position.x = odom_t( 0 );
+    camera_odom.pose.pose.position.y = odom_t( 1 );
+    camera_odom.pose.pose.position.z = odom_t( 2 );
+    local_map_msg.cloud_odom = camera_odom;
+
+    pubNewLocation.publish(local_map_msg);
 }
 
 void R3LIVE::publish_track_pts( Rgbmap_tracker &tracker )
@@ -1082,22 +1123,25 @@ void R3LIVE::save_local_map(std::shared_ptr<Image_frame> &image)
 
     eigen_q odom_q = image->m_pose_w2c_q;
     vec_3 odom_t = image->m_pose_w2c_t;
-    double dist = (odom_t - m_last_local_pos).norm();
-    if (dist > m_local_map_interval)
+    double delta_x = abs((odom_t - m_last_local_pos)(0));
+    double delta_y = abs((odom_t - m_last_local_pos)(1));
+    double overlap_area = (2 * m_local_map_x_range - delta_x) * (2 * m_local_map_y_range - delta_y);
+    double overlap_ratio = overlap_area / (4 * m_local_map_x_range * m_local_map_y_range);
+    if (overlap_ratio < m_local_map_overlap)
     {
         cout << "Out of local map boundary, save another local map!" << endl;
         cout << "Current local map pos is " << odom_t;
         fflush(stdout);
 
         Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
-        T.block<3,3>(0,0) = odom_q.toRotationMatrix().eval();
-        T.block<3,1>(0,3) = odom_t.eval();
+        T.block<3,3>(0,0) = m_last_local_rot.toRotationMatrix().eval();
+        T.block<3,1>(0,3) = m_last_local_pos.eval();
         std::string timestamp = std::to_string(image->m_timestamp);
         timestamp = timestamp.replace(timestamp.find('.'), 1, "_");
 
         m_map_rgb_pts.save_local_to_pcd(m_map_output_dir + "/odometry/", cloud_map, counter,
-                                        timestamp, m_pub_pt_minimum_views, T, m_local_map_overlap);
-        m_last_local_pos = odom_t;
+                                        timestamp, m_pub_pt_minimum_views, T,
+                                        m_local_map_x_range, m_local_map_y_range);
 
         ofstream fin(m_map_output_dir + "/odometry/" + timestamp + ".odom", ios::binary);
         fin << T(0, 0) << " " << T(0, 1) << " " << T(0, 2) << " " << T(0, 3) << endl;
@@ -1117,16 +1161,19 @@ void R3LIVE::save_local_map(std::shared_ptr<Image_frame> &image)
         camera_odom.header.frame_id = "local_map";
         camera_odom.child_frame_id = "/";
         camera_odom.header.stamp = ros::Time::now(); // ros::Time().fromSec(last_timestamp_lidar);
-        camera_odom.pose.pose.orientation.x = odom_q.x();
-        camera_odom.pose.pose.orientation.y = odom_q.y();
-        camera_odom.pose.pose.orientation.z = odom_q.z();
-        camera_odom.pose.pose.orientation.w = odom_q.w();
-        camera_odom.pose.pose.position.x = odom_t( 0 );
-        camera_odom.pose.pose.position.y = odom_t( 1 );
-        camera_odom.pose.pose.position.z = odom_t( 2 );
+        camera_odom.pose.pose.orientation.x = m_last_local_rot.x();
+        camera_odom.pose.pose.orientation.y = m_last_local_rot.y();
+        camera_odom.pose.pose.orientation.z = m_last_local_rot.z();
+        camera_odom.pose.pose.orientation.w = m_last_local_rot.w();
+        camera_odom.pose.pose.position.x = m_last_local_pos( 0 );
+        camera_odom.pose.pose.position.y = m_last_local_pos( 1 );
+        camera_odom.pose.pose.position.z = m_last_local_pos( 2 );
         local_map_msg.cloud_odom = camera_odom;
 
         pubLocalMap.publish(local_map_msg);
+
+        m_last_local_pos = odom_t;
+        m_last_local_rot = odom_q;
     }
 }
 
@@ -1295,6 +1342,7 @@ void R3LIVE::service_VIO_update()
         publish_camera_odom( img_pose, message_time );
         // publish_track_img( op_track.m_debug_track_img, display_cost_time );
         publish_track_img( img_pose->m_raw_img, display_cost_time );
+        publish_new_location(img_pose);
 
         // save local map every 10m
         save_local_map(img_pose);
