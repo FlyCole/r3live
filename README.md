@@ -127,6 +127,19 @@ cd ${HOME}/r3live_output
 meshlab textured_mesh.ply
 ```
 
+### 5.5 Config Parameters.
+Here's 2 new messages: /local_map and /new_location.
+
+Parameters used for /local_map:
+1. local_map_overlap: the overlap threshold, when the local map overlap ratio is smaller than that, save the local map and start a new one.
+2. local_map_x_range: local map half distance [x axis].
+3. local_map_y_range: local map half distance [y axis].
+
+
+Parameters used for /new_location:
+1. new_loc_x_range: New location points half range [x axis].
+2. new_loc_y_range: New location points half range [y axis].
+
 ## 6. Sample and run your own data
 Since the LiDAR data and IMU data published by the official Livox-ros-driver is with the timestamp of LiDAR (started from 0 in each recording), and the timestamp of the image is usually recorded with the timestamp of the operation system. To make them working under the same time-based, we modified the source code of Livox-ros-driver, which is available at [here](https://github.com/ziv-lin/livox_ros_driver_for_R2LIVE). We suggest you replace the official driver with it when sampling your own data for R3LIVE.
 
